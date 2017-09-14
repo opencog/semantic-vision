@@ -1,6 +1,6 @@
 # Semantic Vison within OpenCog
 
-This is the official repository of the semantic vision research initiative within OpenCog. It is starting as of September 2017 and we are adding research material, code used for experimentation and results in the coming weeks.
+This is the official repository of the semantic vision research initiative within OpenCog. Please see the [Wiki](https://github.com/opencog/semantic-vision/wiki) for more information! It is starting as of September 2017 and we are adding research material, code used for experimentation and results in the coming weeks.
 
 ## Abstract
 
