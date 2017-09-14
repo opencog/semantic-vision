@@ -19,6 +19,7 @@ This is an outline of our major milestones and progress towards them. A more det
   0. Merging of BEGAN and InfoGAN
       - [ ] Work towards our reference implementation of BEInfoGAN in the `implementations` subfolder.
       - [ ] Apply BEInfoGAN to CelebA dataset and achieve reasonable experimental results with our implementation.
+      - [ ] ...
   1. Probabilistic Network InfoGAN
   2. SynerGAN
   3. Compositional SynerGAN
