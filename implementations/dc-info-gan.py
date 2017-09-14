@@ -12,8 +12,8 @@ https://github.com/jacobgil/keras-dcgan
 Requires Tensorflow 1.3
 
 TODO
- - Get noise from TF
- - InfoGAN
+ - Get it to work.
+ - Test InfoGAN
  - Testing...
 
 """
@@ -23,6 +23,8 @@ from PIL import Image
 
 import numpy as np
 import math
+
+import tensorflow as tf
 
 # Is there a nicer way to import these without depending on keras install?
 from tensorflow.contrib.keras.python.keras.models import Sequential
@@ -34,45 +36,64 @@ from tensorflow.contrib.keras.python.keras.layers.convolutional import UpSamplin
 from tensorflow.contrib.keras.python.keras.layers.convolutional import Conv2D, MaxPooling2D
 from tensorflow.contrib.keras.python.keras.layers.core import Flatten
 from tensorflow.contrib.keras.python.keras.optimizers import SGD
+from tensorflow.contrib.keras.python.keras.optimizers import Adam
 from tensorflow.contrib.keras.python.keras.datasets import mnist
 
 
-def generator_model():
-    model = Sequential()
-    model.add(Dense(input_dim=100, units=1024))
-    model.add(Activation('tanh'))
-    model.add(Dense(128*7*7))
-    model.add(BatchNormalization())
-    model.add(Activation('tanh'))
-    model.add(Reshape((7, 7, 128), input_shape=(128*7*7,)))
-    model.add(UpSampling2D(size=(2, 2)))
-    model.add(Conv2D(64, (5, 5), padding='same'))
-    model.add(Activation('tanh'))
-    model.add(UpSampling2D(size=(2, 2)))
-    model.add(Conv2D(1, (5, 5), padding='same'))
-    model.add(Activation('tanh'))
-    return model
+""" Model Definitions """
 
+def generator_model(cat_dim, cont_dim, noise_dim):
+    cat_input = Input(shape=cat_dim, name="cat_input")
+    cont_input = Input(shape=cont_dim, name="cont_input")
+    noise_input = Input(shape=noise_dim, name="noise_input")
+
+    gen_input = merge([cat_input, cont_input, noise_input], mode="concat")
+
+    gen_hidden = Dense(input_dim=100, units=1024)(gen_input)
+    gen_hidden = Activation('tanh')(gen_hidden)
+    gen_hidden = Dense(128*7*7)(gen_hidden)
+    gen_hidden = BatchNormalization()(gen_hidden)
+    gen_hidden = Activation('tanh')(gen_hidden)
+    gen_hidden = Reshape((7, 7, 128), input_shape=(128*7*7,))(gen_hidden)
+    gen_hidden = UpSampling2D(size=(2, 2))(gen_hidden)
+    gen_hidden = Conv2D(64, (5, 5), padding='same')(gen_hidden)
+    gen_hidden = Activation('tanh')(gen_hidden)
+    gen_hidden = UpSampling2D(size=(2, 2))(gen_hidden)
+    gen_hidden = Conv2D(1, (5, 5), padding='same')(gen_hidden)
+    gen_hidden = Activation('tanh')(gen_hidden)
+
+    return Model(input=[cat_input, cont_input, noise_input], output=[gen_hidden], name=model_name)
+
+
+def shared_dq_model(img_dim=(28, 28)):
+    disc_input = Input(shape=img_dim, name="discriminator_input")
+    disc_hidden.add(
+            Conv2D(64, (5, 5),
+            padding='same',
+            input_shape=(28, 28, 1)))(disc_input)
+    disc_hidden = Activation('tanh')(disc_hidden)
+    disc_hidden = MaxPooling2D(pool_size=(2, 2))(disc_hidden)
+    disc_hidden = Conv2D(128, (5, 5))(disc_hidden)
+    disc_hidden = Activation('tanh')(disc_hidden)
+    disc_hidden = MaxPooling2D(pool_size=(2, 2))(disc_hidden)
+    disc_hidden = Flatten()(disc_hidden)
+    disc_hidden = Dense(1024)(disc_hidden)
+    disc_hidden = Activation('tanh')(disc_hidden)
+    return Model(input=disc_input, output=[gen_hidden], name=model_name)
 
 def discriminator_model():
     model = Sequential()
-    model.add(
-            Conv2D(64, (5, 5),
-            padding='same',
-            input_shape=(28, 28, 1))
-            )
-    model.add(Activation('tanh'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Conv2D(128, (5, 5)))
-    model.add(Activation('tanh'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Flatten())
-    model.add(Dense(1024))
-    model.add(Activation('tanh'))
+    model.add(shared_dq_model())
     model.add(Dense(1))
     model.add(Activation('sigmoid'))
     return model
 
+def q_model():
+    model = Sequential()
+    model.add(shared_dq_model())
+    model.add(Dense(12))
+    model.add(Activation('tanh'))
+    return model
 
 def generator_containing_discriminator(g, d):
     model = Sequential()
@@ -81,6 +102,38 @@ def generator_containing_discriminator(g, d):
     model.add(d)
     return model
 
+
+""" Generator Input Noise """
+
+def sample_z(batch_size, z_dim):
+    '''Uniform prior for G(Z)'''
+    return np.random.uniform(-1, 1, size=(batch_size, z_dim))
+
+# for InfoGAN
+def sample_c(batch_size, latent_spec):
+    '''Returns noise according to latent spec [(type, arg), ...] supports categorical and uniform types'''
+    c = []
+
+    for distribution, size in latent_spec:
+
+        if distribution == "categorical":
+            idxs = np.random.randint(size, size=batch_size)
+            onehot = np.zeros((batch_size, size)).astype(np.float32)
+            onehot[np.arange(batch_size), idxs] = 1
+            c.append(onehot)
+        elif distribution == "uniform":
+            random = np.random.uniform(-1, 1, size=(batch_size, 1)) # TODO: normal distribution
+            c.append(random)
+        else:
+            raise NotImplementedError
+
+    return np.concatenate(c, axis=1)
+
+def sample_zc(batch_size, z_dim=32, latent_spec=[("categorical", 10), ("uniform", True), ("uniform", True)]):
+    return np.concatenate([sample_z(batch_size, z_dim), sample_c(batch_size, latent_spec)], axis=1)
+
+
+""" Convenience Method """
 
 def combine_images(generated_images):
     num = generated_images.shape[0]
@@ -96,6 +149,23 @@ def combine_images(generated_images):
             img[:, :, 0]
     return image
 
+""" Gaussian loss function """
+
+def gaussian_loss(y_true, y_pred):
+
+    Q_C_mean = y_pred[:, 0, :]
+    Q_C_logstd = y_pred[:, 1, :]
+
+    y_true = y_true[:, 0, :]
+
+    epsilon = (y_true - Q_C_mean) / (K.exp(Q_C_logstd) + K.epsilon())
+    loss_Q_C = (Q_C_logstd + 0.5 * K.square(epsilon))
+    loss_Q_C = K.mean(loss_Q_C)
+
+    return loss_Q_C
+
+
+""" Main Execution """
 
 def train(BATCH_SIZE):
     (X_train, y_train), (X_test, y_test) = mnist.load_data()
@@ -103,39 +173,70 @@ def train(BATCH_SIZE):
     X_train = X_train[:, :, :, None]
     X_test = X_test[:, :, :, None]
     # X_train = X_train.reshape((X_train.shape, 1) + X_train.shape[1:])
+
     d = discriminator_model()
-    g = generator_model()
+    g = generator_model(cat_dim=1, cont_dim=2, noise_dim=100-12)
     d_on_g = generator_containing_discriminator(g, d)
-    d_optim = SGD(lr=0.0005, momentum=0.9, nesterov=True)
-    g_optim = SGD(lr=0.0005, momentum=0.9, nesterov=True)
+
+    q = q_model()
+    q_on_g = generator_containing_discriminator(g, q)
+
+    d_optim = Adam(lr=1E-4, beta_1=0.5, beta_2=0.999, epsilon=1e-08)
+    g_optim = Adam(lr=1E-4, beta_1=0.5, beta_2=0.999, epsilon=1e-08)
+    q_optim = Adam(lr=1E-4, beta_1=0.5, beta_2=0.999, epsilon=1e-08)
+
     g.compile(loss='binary_crossentropy', optimizer="SGD")
     d_on_g.compile(loss='binary_crossentropy', optimizer=g_optim)
+
     d.trainable = True
     d.compile(loss='binary_crossentropy', optimizer=d_optim)
+
+    q.compile(loss='categorical_crossentropy', optimizer=q_optim)
+
     for epoch in range(100):
         print("Epoch is", epoch)
         print("Number of batches", int(X_train.shape[0]/BATCH_SIZE))
+
         for index in range(int(X_train.shape[0]/BATCH_SIZE)):
-            noise = np.random.uniform(-1, 1, size=(BATCH_SIZE, 100))
+            noise = sample_zc(BATCH_SIZE, z_dim=100-12)
             image_batch = X_train[index*BATCH_SIZE:(index+1)*BATCH_SIZE]
+
             generated_images = g.predict(noise, verbose=0)
+
+            X = np.concatenate((image_batch, generated_images))
+            y = [1] * BATCH_SIZE + [0] * BATCH_SIZE
+            d_loss = d.train_on_batch(X, y)
+
+            q_loss = q.train_on_batch(generated_images, noise[:,100-12:])
+
+            print("batch %d d_loss : %f" % (index, d_loss))
+            print("batch %d q_loss : %f" % (index, q_loss))
+
+            noise = sample_zc(BATCH_SIZE, z_dim=100-12)
+            d.trainable = False
+            g_loss = d_on_g.train_on_batch(noise, [1] * BATCH_SIZE)
+            d.trainable = True
+
+            print("batch %d g_loss : %f" % (index, g_loss))
+
+            # Demo images
+            noise = sample_zc(BATCH_SIZE, z_dim=100-12)
+            noise[:,100-12:-2] = 0
+            for i in xrange(10):
+                noise[i*10:(i+1)*10, -12+i] = 1
+
+            demo_images = g.predict(noise, verbose=0)
+
             if index % 20 == 0:
                 image = combine_images(generated_images)
                 image = image*127.5+127.5
                 Image.fromarray(image.astype(np.uint8)).save(
                     str(epoch)+"_"+str(index)+".png")
-            X = np.concatenate((image_batch, generated_images))
-            y = [1] * BATCH_SIZE + [0] * BATCH_SIZE
-            d_loss = d.train_on_batch(X, y)
-            print("batch %d d_loss : %f" % (index, d_loss))
-            noise = np.random.uniform(-1, 1, (BATCH_SIZE, 100))
-            d.trainable = False
-            g_loss = d_on_g.train_on_batch(noise, [1] * BATCH_SIZE)
-            d.trainable = True
-            print("batch %d g_loss : %f" % (index, g_loss))
+
             if index % 10 == 9:
                 g.save_weights('generator', True)
                 d.save_weights('discriminator', True)
+                q.save_weights('q', True)
 
 
 def generate(BATCH_SIZE, nice=False):
