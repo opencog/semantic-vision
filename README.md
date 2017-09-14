@@ -1,6 +1,6 @@
 # Semantic Vison within OpenCog
 
-This is the official repository of the semantic vision research initiative within OpenCog. As of September 2017 it is just starting and we are slowly adding research material, code used for experimentation and results.
+This is the official repository of the semantic vision research initiative within OpenCog. It is starting as of September 2017 and we are adding research material, code used for experimentation and results in the coming weeks.
 
 ## Abstract
 
@@ -14,15 +14,14 @@ The second core component of the architecture is compositionality: in order to c
 
 ## Goals and Milestones
 
-This is an outline of our major milestones and progress towards them. A more detailed description can be found on the [Wiki](https://github.com/elggem/SynerGAN/wiki/Implementation-Milestones), These will be formulated with greater granularity once we have proceeded a bit.
+This is an outline of our major milestones and progress. A more detailed description can be found on the [Wiki](https://github.com/opencog/semantic-vision/wiki/Implementation-Milestones). These will be formulated with greater granularity once we have proceeded a bit.
 
   0. Merging of BEGAN and InfoGAN
-      - [ ] Work towards our reference implementation of BEInfoGAN in the `implementations` subfolder.
-      - [ ] Apply BEInfoGAN to CelebA dataset and achieve reasonable experimental results with our implementation.
-      - [ ] ...
-  1. Probabilistic Network InfoGAN
-  2. SynerGAN
-  3. Compositional SynerGAN
+      - [ ] Work towards our reference implementation of BEInfoGAN.
+      - [ ] Apply our implementation to CelebA dataset and achieve reasonable experimental results.
+  1. [Probabilistic Network InfoGAN](https://github.com/opencog/semantic-vision/wiki/ProNetInfoGAN)
+  2. [SynerGAN](https://github.com/opencog/semantic-vision/wiki/About-the-SynerGAN-architecture)
+  3. [Compositional SynerGAN](https://github.com/opencog/semantic-vision/wiki/Composition-of-SynerGAN)
 
 
 
@@ -30,10 +29,10 @@ This is an outline of our major milestones and progress towards them. A more det
 
 This is an open source, geographically decentralized research project. We have several core contributors spanning multiple timezones. Any contribution from outside such as discussion, experimentation results or code is always welcome! We use several mechanisms to coordinate the project between the different parties:
 
-  * Issues are the main form of discussion and will be used for proposals, asking questions,
+  * Issues are the main form of discussion and will be used for questions, proposals and support with using our code.
 
   * Any contribution to existing code or new implementations will be discussed and merged as pull requests.
 
   * The Wiki will be used to keep track of all research related materials and contains some material from our initial project proposal.
 
-  * Projects can be used by teammembers to keep track of private projects but may also be used to track collaborative efforts in more detail.
+  * Projects can be used by indivudal team members to keep track of private projects but may also be used to track collaborative efforts in more detail in the future.
