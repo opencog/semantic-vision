@@ -14,17 +14,14 @@ The second core component of the architecture is compositionality: in order to c
 
 ## Goals and Milestones
 
-This is an outline of our major milestones and progress towards them. A more detailed description can be found on the [Wiki|https://github.com/elggem/SynerGAN/wiki/Implementation-Milestones], These will be formulated with greater granularity once we have proceeded a bit.
+This is an outline of our major milestones and progress towards them. A more detailed description can be found on the [Wiki](https://github.com/elggem/SynerGAN/wiki/Implementation-Milestones), These will be formulated with greater granularity once we have proceeded a bit.
 
   0. Merging of BEGAN and InfoGAN
-    - [ ] Work towards our reference implementation of BEInfoGAN in the `implementations` subfolder.
-    - [ ] Apply BEInfoGAN to CelebA dataset and achieve reasonable experimental results with our implementation.
+      - [ ] Work towards our reference implementation of BEInfoGAN in the `implementations` subfolder.
+      - [ ] Apply BEInfoGAN to CelebA dataset and achieve reasonable experimental results with our implementation.
   1. Probabilistic Network InfoGAN
-    - Here we want to research the loss function needed to enforce structure from arbitrary complex probability distributions on our BEInfoGAN to make ProNetInfoGAN. More discussion on this will follow soon.
   2. SynerGAN
-    - Here we will tackle first experimentation with ProNetInfoGANs in combination with PLN to form SynerGAN.
   3. Compositional SynerGAN
-    - Introducing clustering into the mix to work towards compositional use of SynerGAN modules.
 
 
 
