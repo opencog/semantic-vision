@@ -1,20 +1,6 @@
 # Implementation of DC-InfoGAN
 
 ```
-   python train.py --....
+   ./train.py --mode train
 ```
 
-...
-
-
-
-## Issue:
-tags: implementation results
-
-Hey everyone!
-
-I finally put my reference implementation for DC-InfoGAN in the repo. It's in 
-
-...
-
-Please look at the code and see if you spot any big ...     
