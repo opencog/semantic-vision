@@ -14,10 +14,6 @@ Requires Tensorflow 1.3 to run!
 
 @elggem
 
-
-TODO:
-  - ctrl-c handling
-
 """
 
 import argparse
