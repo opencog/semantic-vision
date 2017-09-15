@@ -1,7 +1,7 @@
-# Implementation of DC-Info-GAN
+# DC-Info-GAN
 @elggem
 
-This is the reference implementation for DC-Info-GAN. See the code for inline documentation.
+This is the reference implementation for DC-Info-GAN.
 
 Training:
 
@@ -9,14 +9,9 @@ Training:
    ./gan.py --mode train
 ```
 
-Generate from stored weights:
+Generate from stored weights (*.kerasweights):
 
 ```
    ./gan.py --mode generate
 ```
 
-## Results
-
-These are the results for training 10 epochs:
-
-![Animated Results](https://github.com/opencog/semantic-vision/raw/master/experimental-code/dc-info-gan/results/mnist-animated.gif)
