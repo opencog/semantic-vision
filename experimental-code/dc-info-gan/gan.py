@@ -236,61 +236,63 @@ def train():
     q.compile(loss=disc_mutual_info_loss, optimizer=q_optim)
 
 
-    # Main Training Loop
-    for epoch in range(100):
-        print("Epoch is", epoch)
-        print("Number of batches", int(X_train.shape[0]/BATCH_SIZE))
+    try:
+        # Main Training Loop
+        for epoch in range(100):
+            print("Epoch is", epoch)
+            print("Number of batches", int(X_train.shape[0]/BATCH_SIZE))
 
-        for index in range(int(X_train.shape[0]/BATCH_SIZE)):
+            for index in range(int(X_train.shape[0]/BATCH_SIZE)):
+                # Get Real and Generated Images
+                noise = sample_zc()
 
-            # Get Real and Generated Images
-            noise = sample_zc()
-            
-            real_images = X_train[index*BATCH_SIZE:(index+1)*BATCH_SIZE]
-            generated_images = g.predict(noise, batch_size=BATCH_SIZE, verbose=0)
+                real_images = X_train[index*BATCH_SIZE:(index+1)*BATCH_SIZE]
+                generated_images = g.predict(noise, batch_size=BATCH_SIZE, verbose=0)
 
-            # Train Discriminator and Q network
-            training_images = np.concatenate((real_images, generated_images))
-            labels = [1] * BATCH_SIZE + [0] * BATCH_SIZE
-            latent_code = np.concatenate(noise[1:], axis=1)
+                # Train Discriminator and Q network
+                training_images = np.concatenate((real_images, generated_images))
+                labels = [1] * BATCH_SIZE + [0] * BATCH_SIZE
+                latent_code = np.concatenate(noise[1:], axis=1)
 
-            d_loss = d.train_on_batch(training_images, labels)
-            q_loss = q.train_on_batch(generated_images, latent_code)
+                d_loss = d.train_on_batch(training_images, labels)
+                q_loss = q.train_on_batch(generated_images, latent_code)
 
-            # Train Generator using Fake/Real Signal
-            noise = sample_zc()
+                # Train Generator using Fake/Real Signal
+                noise = sample_zc()
 
-            d.trainable = False
-            g_d_loss = d_on_g.train_on_batch(noise, [1] * BATCH_SIZE)
-            d.trainable = True
+                d.trainable = False
+                g_d_loss = d_on_g.train_on_batch(noise, [1] * BATCH_SIZE)
+                d.trainable = True
 
-            # Train Generator using Mutual Information Lower Bound
-            noise = sample_zc()
-            latent_code = np.concatenate(noise[1:], axis=1)
+                # Train Generator using Mutual Information Lower Bound
+                noise = sample_zc()
+                latent_code = np.concatenate(noise[1:], axis=1)
 
-            q.trainable = False
-            g_q_loss = q_on_g.train_on_batch(noise, latent_code)
-            q.trainable = True
+                q.trainable = False
+                g_q_loss = q_on_g.train_on_batch(noise, latent_code)
+                q.trainable = True
+
+                print("batch %d d_loss : %.3f q_loss: %.3f g_loss_d: %.3f g_loss_q: %.3f" % (index, d_loss, q_loss, g_d_loss, g_q_loss))
+
+                # Generate Sample Images
+                if index % 20 == 0:
+                    image = make_image(g)
+
+                    Image.fromarray(image.astype(np.uint8)).save(
+                        str(epoch)+"_"+str(index)+".png")
+
+                # Save weights
+                if index % 10 == 9:
+                    g.save_weights('g.kerasweights', True)
+                    d.save_weights('d.kerasweights', True)
+                    q.save_weights('q.kerasweights', True)
+
+    except KeyboardInterrupt:
+      pass
+
+    print("\rFinished training")
 
 
-            print("batch %d d_loss : %.3f q_loss: %.3f g_loss_d: %.3f g_loss_q: %.3f" % (index, d_loss, q_loss, g_d_loss, g_q_loss))
-
-
-            # Generate Sample Images
-            if index % 20 == 0:
-                image = make_image(g)
-
-                Image.fromarray(image.astype(np.uint8)).save(
-                    str(epoch)+"_"+str(index)+".png")
-
-            # Save weights
-            if index % 10 == 9:
-                g.save_weights('g.kerasweights', True)
-                d.save_weights('d.kerasweights', True)
-                q.save_weights('q.kerasweights', True)
-
-
-# TODO: Make this adapt to different latent specs and also nicer....
 def generate(nice=False):
     g = generator_model()
     g.compile(loss='binary_crossentropy', optimizer="SGD")
