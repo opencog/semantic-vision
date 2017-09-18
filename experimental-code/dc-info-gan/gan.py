@@ -28,6 +28,7 @@ from tensorflow.contrib.keras.python.keras import backend as K
 from tensorflow.contrib.keras.python.keras.models import Model, Sequential
 from tensorflow.contrib.keras.python.keras.layers import Dense, Reshape, Input, concatenate
 from tensorflow.contrib.keras.python.keras.layers.core import Activation
+from tensorflow.contrib.keras.python.keras.layers.advanced_activations import LeakyReLU
 from tensorflow.contrib.keras.python.keras.layers.normalization import BatchNormalization
 from tensorflow.contrib.keras.python.keras.layers.convolutional import UpSampling2D
 from tensorflow.contrib.keras.python.keras.layers.convolutional import Conv2D, MaxPooling2D
@@ -98,14 +99,17 @@ def discriminator_model():
 
     h = Dense(1)(model.output)
     h = Activation('sigmoid')(h)
-    
+
     return Model(inputs=model.input, outputs=[h], name="discriminator")
 
 def q_model():
     model = shared_dq_model()
 
-    h = Dense(DISC_DIM+CONT_DIM)(model.output)
-    h = Activation('softmax')(h)
+    h = Dense(128)(model.output)
+    h = BatchNormalization()(h)
+    h = LeakyReLU()(h)
+    h = Dense(DISC_DIM+CONT_DIM)(h)
+    h = Activation('linear')(h)
 
     return Model(inputs=model.input, outputs=[h], name="q_network")
 
@@ -227,13 +231,13 @@ def train():
     # Compile Models with loss functions
     g.compile(loss='binary_crossentropy', optimizer="SGD")
     d_on_g.compile(loss='binary_crossentropy', optimizer=g_optim)
-    q_on_g.compile(loss=disc_mutual_info_loss, optimizer=g_optim)
+    q_on_g.compile(loss='mse', optimizer=g_optim)
 
     d.trainable = True
     d.compile(loss='binary_crossentropy', optimizer=d_optim)
 
     q.trainable = True
-    q.compile(loss=disc_mutual_info_loss, optimizer=q_optim)
+    q.compile(loss='mse', optimizer=q_optim)
 
 
     try:
