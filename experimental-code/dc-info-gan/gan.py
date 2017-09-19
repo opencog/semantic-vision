@@ -43,11 +43,14 @@ LR = 1e-4
 EPSILON = 1e-8
 BATCH_SIZE = 128
 
+LAMBDA_DISC = 0.5
+LAMBDA_CONT = 0.5
+
 IMG_DIM = (28, 28, 1)
 
 Z_DIM = 88
 
-LATENT_SPEC = [("categorical", 10), ("uniform", True), ("uniform", True)]
+LATENT_SPEC = [("categorical", 10), ("uniform", 1), ("uniform", 1)]
 DISC_DIM = sum([t[1] for t in LATENT_SPEC if t[0]=="categorical"])
 CONT_DIM = sum([t[1] for t in LATENT_SPEC if t[0]=="uniform"])
 
@@ -56,10 +59,11 @@ CONT_DIM = sum([t[1] for t in LATENT_SPEC if t[0]=="uniform"])
 
 def generator_model():
     noise_input = Input(batch_shape=(BATCH_SIZE, Z_DIM), name='z_input')
-    disc_input = Input(batch_shape=(BATCH_SIZE, DISC_DIM), name='disc_input')
-    cont_input = Input(batch_shape=(BATCH_SIZE, CONT_DIM), name='cont_input')
+    input_list = [noise_input]
 
-    input_list = [noise_input, disc_input, cont_input]
+    for distribution, size in LATENT_SPEC:
+        inp = Input(batch_shape=(BATCH_SIZE, size))
+        input_list.append(inp)
 
     gen_input = concatenate(input_list, axis=1, name="generator_input")
 
@@ -108,18 +112,24 @@ def q_model():
     h = Dense(128)(model.output)
     h = BatchNormalization()(h)
     h = LeakyReLU()(h)
-    h = Dense(DISC_DIM+CONT_DIM)(h)
-    h = Activation('sigmoid')(h)
 
-    return Model(inputs=model.input, outputs=[h], name="q_network")
+    outputs = []
+
+    for distribution, size in LATENT_SPEC:
+
+        if distribution == "categorical":
+            outputs.append(Dense(size, activation='softmax',  name="%s_%d" % (distribution, len(outputs)))(h))
+        elif distribution == "uniform":
+            outputs.append(Dense(size, activation='linear',  name="%s_%d" % (distribution, len(outputs)))(h))
+        else:
+            raise NotImplementedError
+
+    return Model(inputs=model.input, outputs=outputs, name="q_network")
 
 
 def generator_containing_discriminator(g, d):
-    model = Sequential()
-    model.add(g)
     d.trainable = False
-    model.add(d)
-    return model
+    return Model(inputs=g.input, outputs=d(g.output))
 
 
 """ Generator Input Noise """
@@ -130,8 +140,7 @@ def sample_z():
 
 def sample_c():
     '''Returns noise according to latent spec [(type, arg), ...] supports categorical and uniform types'''
-    disc = []
-    cont = []
+    sampled = []
 
     for distribution, size in LATENT_SPEC:
 
@@ -139,14 +148,14 @@ def sample_c():
             idxs = np.random.randint(size, size=BATCH_SIZE)
             onehot = np.zeros((BATCH_SIZE, size)).astype(np.float32)
             onehot[np.arange(BATCH_SIZE), idxs] = 1
-            disc.append(onehot)
+            sampled.append(onehot)
         elif distribution == "uniform":
             random = np.random.uniform(-1, 1, size=(BATCH_SIZE, 1))
-            cont.append(random)
+            sampled.append(random)
         else:
             raise NotImplementedError
 
-    return [np.concatenate(disc, axis=1), np.concatenate(cont, axis=1)]
+    return sampled
 
 def sample_zc():
     array = [sample_z()]
@@ -171,23 +180,25 @@ def combine_images(generated_images):
     return image
 
 def make_image(generator):
-    # TODO: Adaptive to latent spec, nicer output and nicer code here...
-    noise = sample_zc()
-    noise[1][:,:] = 0
+    noise = [sample_z()]
 
-    # Set Categorical Noise fixed
-    for i in xrange(DISC_DIM):
-        noise[1][i*10:(i+1)*10, i] = 1
+    for distribution, size in LATENT_SPEC:
 
-    # Set Continous Noise
-    noise[1][100:110, 1] = 1
-    noise[1][110:120, 1] = 1
-
-    for i in xrange(10):
-        noise[2][(100+i):((100+i)+1), :] = i/10.0
+        if distribution == "categorical":
+            idxs = np.concatenate([np.repeat(i,size) for i in range(size)])
+            idxs = np.append(idxs, np.repeat(0, BATCH_SIZE-(size*size)))
+            onehot = np.zeros((BATCH_SIZE, size)).astype(np.float32)
+            onehot[np.arange(BATCH_SIZE), idxs] = 1
+            noise.append(onehot)
+        elif distribution == "uniform":
+            random = np.concatenate([[i/10.0 for i in range(10)] for _ in range(size)])
+            random = np.append(random, np.repeat(0, BATCH_SIZE-(size*size)))
+            noise.append(random)
+        else:
+            raise NotImplementedError
 
     demo_images = generator.predict(noise, batch_size=BATCH_SIZE, verbose=0)
-    image = combine_images(demo_images[:(DISC_DIM+CONT_DIM)*10])
+    image = combine_images(demo_images[:(DISC_DIM)*10])
     image = image*127.5+127.5
 
     return image
@@ -196,21 +207,11 @@ def make_image(generator):
 """ Loss functions """
 
 def combined_mutual_info_loss(true_disc, predicted_disc):
-    i = 0
-    loss = 0
+    if predicted_disc.name.find("categorical") > -1:
+        return LAMBDA_DISC * disc_mutual_info_loss(true_disc, predicted_disc)
+    elif predicted_disc.name.find("uniform") > -1:
+        return LAMBDA_CONT * cont_mutual_info_loss(true_disc, predicted_disc)
 
-    for distribution, size in LATENT_SPEC:
-
-        if distribution == "categorical":
-            loss += disc_mutual_info_loss(true_disc[i:i+size], predicted_disc[i:i+size])
-            i+=size
-        elif distribution == "uniform":
-            loss += disc_mutual_info_loss(true_disc[i:i+1], predicted_disc[i:i+1])
-            i+=1
-        else:
-            raise NotImplementedError
-
-    return loss
 
 def disc_mutual_info_loss(c_disc, aux_dist):
     """
@@ -227,7 +228,8 @@ def cont_mutual_info_loss(c_disc, aux_dist):
     Mutual Information lower bound loss for continous distribution.
     Using MSE here.
     """
-    return tf.losses.mean_squared_error(c_disc, aux_dist)
+    return  tf.losses.mean_squared_error(c_disc, aux_dist)
+
 
 
 """ Main Execution """
@@ -280,10 +282,9 @@ def train():
                 # Train Discriminator and Q network
                 training_images = np.concatenate((real_images, generated_images))
                 labels = [1] * BATCH_SIZE + [0] * BATCH_SIZE
-                latent_code = np.concatenate(noise[1:], axis=1)
 
                 d_loss = d.train_on_batch(training_images, labels)
-                q_loss = q.train_on_batch(generated_images, latent_code)
+                q_loss = q.train_on_batch(generated_images, noise[1:])
 
                 # Train Generator using Fake/Real Signal
                 noise = sample_zc()
@@ -294,13 +295,12 @@ def train():
 
                 # Train Generator using Mutual Information Lower Bound
                 noise = sample_zc()
-                latent_code = np.concatenate(noise[1:], axis=1)
 
                 q.trainable = False
-                g_q_loss = q_on_g.train_on_batch(noise, latent_code)
+                g_q_loss = q_on_g.train_on_batch(noise, noise[1:])
                 q.trainable = True
 
-                print("batch %d d_loss : %.3f q_loss: %.3f g_loss_d: %.3f g_loss_q: %.3f" % (index, d_loss, q_loss, g_d_loss, g_q_loss))
+                print("batch %d d_loss : %.3f q_loss: %s g_loss_d: %.3f g_loss_q: %s" % (index, d_loss, q_loss, g_d_loss, g_q_loss))
 
                 # Generate Sample Images
                 if index % 20 == 0:
