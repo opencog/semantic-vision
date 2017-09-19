@@ -109,7 +109,7 @@ def q_model():
     h = BatchNormalization()(h)
     h = LeakyReLU()(h)
     h = Dense(DISC_DIM+CONT_DIM)(h)
-    h = Activation('linear')(h)
+    h = Activation('sigmoid')(h)
 
     return Model(inputs=model.input, outputs=[h], name="q_network")
 
@@ -195,6 +195,23 @@ def make_image(generator):
 
 """ Loss functions """
 
+def combined_mutual_info_loss(true_disc, predicted_disc):
+    i = 0
+    loss = 0
+
+    for distribution, size in LATENT_SPEC:
+
+        if distribution == "categorical":
+            loss += disc_mutual_info_loss(true_disc[i:i+size], predicted_disc[i:i+size])
+            i+=size
+        elif distribution == "uniform":
+            loss += disc_mutual_info_loss(true_disc[i:i+1], predicted_disc[i:i+1])
+            i+=1
+        else:
+            raise NotImplementedError
+
+    return loss
+
 def disc_mutual_info_loss(c_disc, aux_dist):
     """
     Mutual Information lower bound loss for discrete distribution.
@@ -204,6 +221,13 @@ def disc_mutual_info_loss(c_disc, aux_dist):
     ent = - K.mean( K.sum( K.log(1./reg_disc_dim + EPSILON) * c_disc, axis=1 ) )
 
     return - (ent - cross_ent)
+
+def cont_mutual_info_loss(c_disc, aux_dist):
+    """
+    Mutual Information lower bound loss for continous distribution.
+    Using MSE here.
+    """
+    return tf.losses.mean_squared_error(c_disc, aux_dist)
 
 
 """ Main Execution """
@@ -231,13 +255,13 @@ def train():
     # Compile Models with loss functions
     g.compile(loss='binary_crossentropy', optimizer="SGD")
     d_on_g.compile(loss='binary_crossentropy', optimizer=g_optim)
-    q_on_g.compile(loss='mse', optimizer=g_optim)
+    q_on_g.compile(loss=combined_mutual_info_loss, optimizer=g_optim)
 
     d.trainable = True
     d.compile(loss='binary_crossentropy', optimizer=d_optim)
 
     q.trainable = True
-    q.compile(loss='mse', optimizer=q_optim)
+    q.compile(loss=combined_mutual_info_loss, optimizer=q_optim)
 
 
     try:
