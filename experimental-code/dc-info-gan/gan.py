@@ -43,8 +43,8 @@ LR = 1e-4
 EPSILON = 1e-8
 BATCH_SIZE = 128
 
-LAMBDA_DISC = 0.5
-LAMBDA_CONT = 0.5
+LAMBDA_DISC = 1.0
+LAMBDA_CONT = 1.0
 
 IMG_DIM = (28, 28, 1)
 
@@ -136,7 +136,7 @@ def generator_containing_discriminator(g, d):
 
 def sample_z():
     '''Uniform prior for G(Z)'''
-    return np.random.uniform(-1, 1, size=(BATCH_SIZE, Z_DIM))
+    return np.random.uniform(0, 1, size=(BATCH_SIZE, Z_DIM))
 
 def sample_c():
     '''Returns noise according to latent spec [(type, arg), ...] supports categorical and uniform types'''
@@ -150,7 +150,7 @@ def sample_c():
             onehot[np.arange(BATCH_SIZE), idxs] = 1
             sampled.append(onehot)
         elif distribution == "uniform":
-            random = np.random.uniform(-1, 1, size=(BATCH_SIZE, 1))
+            random = np.random.uniform(0, 1, size=(BATCH_SIZE, size))
             sampled.append(random)
         else:
             raise NotImplementedError
@@ -182,20 +182,22 @@ def combine_images(generated_images):
 def make_image(generator):
     noise = [sample_z()]
 
-    for distribution, size in LATENT_SPEC:
+    size = 10
+    idxs = np.concatenate([np.repeat(i,size) for i in range(size)])
+    idxs = np.append(idxs, np.repeat(0, BATCH_SIZE-(size*size)))
+    onehot = np.zeros((BATCH_SIZE, size)).astype(np.float32)
+    onehot[np.arange(BATCH_SIZE), idxs] = 1
+    noise.append(onehot)
 
-        if distribution == "categorical":
-            idxs = np.concatenate([np.repeat(i,size) for i in range(size)])
-            idxs = np.append(idxs, np.repeat(0, BATCH_SIZE-(size*size)))
-            onehot = np.zeros((BATCH_SIZE, size)).astype(np.float32)
-            onehot[np.arange(BATCH_SIZE), idxs] = 1
-            noise.append(onehot)
-        elif distribution == "uniform":
-            random = np.concatenate([[i/10.0 for i in range(10)] for _ in range(size)])
-            random = np.append(random, np.repeat(0, BATCH_SIZE-(size*size)))
-            noise.append(random)
-        else:
-            raise NotImplementedError
+    size = 10
+    random = np.concatenate([[i/10.0 for i in range(10)] for _ in range(size)])
+    random = np.append(random, np.repeat(0, BATCH_SIZE-(size*size)))
+    noise.append(random)
+
+    size = 10
+    random = np.concatenate([[i/10.0 for i in range(10)] for _ in range(size)])
+    random = np.append(random, np.repeat(0, BATCH_SIZE-(size*size)))
+    noise.append(random)
 
     demo_images = generator.predict(noise, batch_size=BATCH_SIZE, verbose=0)
     image = combine_images(demo_images[:(DISC_DIM)*10])
@@ -217,11 +219,10 @@ def disc_mutual_info_loss(c_disc, aux_dist):
     """
     Mutual Information lower bound loss for discrete distribution.
     """
-    reg_disc_dim = aux_dist.get_shape().as_list()[-1]
-    cross_ent = - K.mean( K.sum( K.log(aux_dist + EPSILON) * c_disc, axis=1 ) )
-    ent = - K.mean( K.sum( K.log(1./reg_disc_dim + EPSILON) * c_disc, axis=1 ) )
+    cross_ent = tf.reduce_mean(-tf.reduce_sum(tf.log(aux_dist + 1e-8) * c_disc, 1))
+    ent = tf.reduce_mean(-tf.reduce_sum(tf.log(c_disc + 1e-8) * c_disc, 1))
+    return ent + cross_ent
 
-    return - (ent - cross_ent)
 
 def cont_mutual_info_loss(c_disc, aux_dist):
     """
