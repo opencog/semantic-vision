@@ -26,7 +26,7 @@ import tensorflow as tf
 
 from tensorflow.contrib.keras.python.keras import backend as K
 from tensorflow.contrib.keras.python.keras.models import Model, Sequential
-from tensorflow.contrib.keras.python.keras.layers import Dense, Reshape, Input, concatenate
+from tensorflow.contrib.keras.python.keras.layers import Dense, Reshape, Input, Dropout, concatenate
 from tensorflow.contrib.keras.python.keras.layers.core import Activation
 from tensorflow.contrib.keras.python.keras.layers.advanced_activations import LeakyReLU
 from tensorflow.contrib.keras.python.keras.layers.normalization import BatchNormalization
@@ -68,17 +68,17 @@ def generator_model():
     gen_input = concatenate(input_list, axis=1, name="generator_input")
 
     h = Dense(1024)(gen_input)
-    h = Activation('tanh')(h)
+    h = LeakyReLU(0.2)(h)
     h = Dense(128*7*7)(h)
     h = BatchNormalization()(h)
-    h = Activation('tanh')(h)
+    h = LeakyReLU(0.2)(h)
     h = Reshape((7, 7, 128), input_shape=(128*7*7,))(h)
     h = UpSampling2D(size=(2, 2))(h)
     h = Conv2D(64, (5, 5), padding='same')(h)
-    h = Activation('tanh')(h)
+    h = LeakyReLU(0.2)(h)
     h = UpSampling2D(size=(2, 2))(h)
     h = Conv2D(1, (5, 5), padding='same')(h)
-    h = Activation('tanh')(h)
+    h = Activation('sigmoid')(h)
 
     return Model(inputs=input_list, outputs=[h], name="generator")
 
@@ -87,14 +87,14 @@ def shared_dq_model():
     img_input = Input(shape=IMG_DIM, name="discriminator_input")
 
     h = Conv2D(64, (5, 5), padding='same', input_shape=(28, 28, 1))(img_input)
-    h = Activation('tanh')(h)
+    h = LeakyReLU(0.2)(h)
     h = MaxPooling2D(pool_size=(2, 2))(h)
     h = Conv2D(128, (5, 5))(h)
-    h = Activation('tanh')(h)
+    h = LeakyReLU(0.2)(h)
     h = MaxPooling2D(pool_size=(2, 2))(h)
     h = Flatten()(h)
     h = Dense(1024)(h)
-    h = Activation('tanh')(h)
+    h = LeakyReLU(0.2)(h)
 
     return Model(inputs=img_input, outputs=[h], name="shared_dq")
 
@@ -112,7 +112,7 @@ def q_model():
     h = Dense(128)(model.output)
     h = BatchNormalization()(h)
     h = LeakyReLU()(h)
-
+    
     outputs = []
 
     for distribution, size in LATENT_SPEC:
@@ -201,7 +201,7 @@ def make_image(generator):
 
     demo_images = generator.predict(noise, batch_size=BATCH_SIZE, verbose=0)
     image = combine_images(demo_images[:(DISC_DIM)*10])
-    image = image*127.5+127.5
+    image = image*255.0
 
     return image
 
@@ -239,7 +239,8 @@ def train():
     # Prepare Training Data
     (X_train, y_train), (X_test, y_test) = mnist.load_data()
 
-    X_train = (X_train.astype(np.float32) - 127.5)/127.5
+    #X_train = (X_train.astype(np.float32) - 127.5)/127.5
+    X_train = (X_train.astype(np.float32))/255.0
     X_train = X_train[:, :, :, None]
     X_test = X_test[:, :, :, None]
 
