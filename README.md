@@ -1,6 +1,6 @@
 # Semantic Vision for OpenCog
 
-This is the official repository of the semantic vision research initiative within OpenCog. Please see the [Wiki](https://github.com/opencog/semantic-vision/wiki) for more information! It is starting as of September 2017 and we are adding research material, code used for experimentation and results in the coming weeks.
+This is a repository hosting documentation and milestones of the semantic vision research initiative within OpenCog. Please see the [Wiki](https://github.com/opencog/semantic-vision/wiki) for more information! It is starting as of September 2017 and we are adding research material, code used for experimentation and results as we go along.
 
 ## Abstract
 
@@ -16,9 +16,7 @@ The second core component of the architecture is compositionality: in order to c
 
 This is an outline of our major milestones and progress. A more detailed description can be found on the [Wiki](https://github.com/opencog/semantic-vision/wiki/Implementation-Milestones). These will be formulated with greater granularity once we have proceeded a bit.
 
-  0. Merging of BEGAN and InfoGAN
-      - [ ] Work towards our reference implementation of BEInfoGAN.
-      - [ ] Apply our implementation to CelebA dataset and achieve reasonable experimental results.
+  0. Preliminary experiments around different implementations of GAN and InfoGAN
   1. [Probabilistic Network InfoGAN](https://github.com/opencog/semantic-vision/wiki/ProNetInfoGAN)
   2. [SynerGAN](https://github.com/opencog/semantic-vision/wiki/About-the-SynerGAN-architecture)
   3. [Compositional SynerGAN](https://github.com/opencog/semantic-vision/wiki/Composition-of-SynerGAN)
