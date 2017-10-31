@@ -1,6 +1,6 @@
 # Semantic Vision for OpenCog
 
-This is a repository hosting documentation and milestones of the semantic vision research initiative within OpenCog. Please see the [Wiki](https://github.com/opencog/semantic-vision/wiki) for more information! It is starting as of September 2017 and we are adding research material, code used for experimentation and results as we go along.
+This is a repository hosting public discussion, documentation and milestones of the semantic vision research initiative within OpenCog. Please see the [Wiki](https://github.com/opencog/semantic-vision/wiki) for more information! It is starting as of September 2017 and we are adding research material, code used for experimentation and results as we go along. Stay tuned for more!
 
 ## Abstract
 
